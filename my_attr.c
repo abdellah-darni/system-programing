@@ -1,13 +1,20 @@
+// my_attr.c
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <time.h>
+#include <pwd.h>
+#include <grp.h>
 
 int main(int argc, char *argv[])
 {
     struct stat sb;
+    struct passwd *pw;
+    struct group *gr;
+    char mode_str[10];
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <path>\n", argv[0]);
@@ -38,12 +45,28 @@ int main(int argc, char *argv[])
 
     printf("I-node number:            %ju\n", (uintmax_t) sb.st_ino);
 
-    printf("Mode:                     %jo (octal)\n",
-        (uintmax_t) sb.st_mode);
+    mode_str[0] = (sb.st_mode & S_IRUSR) ? 'r' : '-';
+    mode_str[1] = (sb.st_mode & S_IWUSR) ? 'w' : '-';
+    mode_str[2] = (sb.st_mode & S_IXUSR) ? 'x' : '-';
+    mode_str[3] = (sb.st_mode & S_IRGRP) ? 'r' : '-';
+    mode_str[4] = (sb.st_mode & S_IWGRP) ? 'w' : '-';
+    mode_str[5] = (sb.st_mode & S_IXGRP) ? 'x' : '-';
+    mode_str[6] = (sb.st_mode & S_IROTH) ? 'r' : '-';
+    mode_str[7] = (sb.st_mode & S_IWOTH) ? 'w' : '-';
+    mode_str[8] = (sb.st_mode & S_IXOTH) ? 'x' : '-';
+    mode_str[9] = '\0';
+
+    printf("Mode:                     %s (%jo octal)\n", 
+        mode_str, (uintmax_t) sb.st_mode);
 
     printf("Link count:               %ju\n", (uintmax_t) sb.st_nlink);
-    printf("Ownership:                UID=%ju   GID=%ju\n",
-        (uintmax_t) sb.st_uid, (uintmax_t) sb.st_gid);
+
+    pw = getpwuid(sb.st_uid);
+    gr = getgrgid(sb.st_gid);
+
+    printf("Ownership:                User: %s   Group: %s\n",
+        (pw != NULL) ? pw->pw_name : "unknown",
+        (gr != NULL) ? gr->gr_name : "unknown");
 
     printf("Preferred I/O block size: %jd bytes\n",
         (intmax_t) sb.st_blksize);

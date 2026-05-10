@@ -8,7 +8,6 @@
 #include <grp.h>
 #include <string.h>
 
-
 void print_file_info(const char *filename, const struct stat *sb)
 {
     char mode_str[11];
@@ -49,18 +48,26 @@ void print_file_info(const char *filename, const struct stat *sb)
            filename);
 }
 
-int main(int argc, char *argv[])
+void list_dir(const char *dir_path, int recursive)
 {
-    const char *dir_path = (argc >= 2) ? argv[1] : ".";
-    
     DIR *dir;
     struct dirent *entry;
     struct stat sb;
     char full_path[1024];
 
+    char **subdirs = NULL;
+    int subdir_count = 0;
+    int subdir_capacity = 10;
+
+    if (recursive) {
+        subdirs = malloc(subdir_capacity * sizeof(char*));
+        printf("\n%s:\n", dir_path);
+    }
+
     if ((dir = opendir(dir_path)) == NULL) {
-        perror("opendir");
-        exit(EXIT_FAILURE);
+        perror(dir_path);
+        if (recursive) free(subdirs);
+        return;
     }
 
     while ((entry = readdir(dir)) != NULL) {
@@ -72,8 +79,45 @@ int main(int argc, char *argv[])
         }
 
         print_file_info(entry->d_name, &sb);
+
+        if (recursive && S_ISDIR(sb.st_mode)) {
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+                
+                if (subdir_count >= subdir_capacity) {
+                    subdir_capacity *= 2;
+                    subdirs = realloc(subdirs, subdir_capacity * sizeof(char*));
+                }
+                
+                subdirs[subdir_count] = strdup(full_path);
+                subdir_count++;
+            }
+        }
     }
 
     closedir(dir);
+
+    if (recursive) {
+        for (int i = 0; i < subdir_count; i++) {
+            list_dir(subdirs[i], recursive);
+            free(subdirs[i]);
+        }
+        free(subdirs);
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    int recursive = 0;
+    const char *dir_path = ".";
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "-R") == 0) {
+            recursive = 1;
+        } else {
+            dir_path = argv[i];
+        }
+    }
+
+    list_dir(dir_path, recursive);
     exit(EXIT_SUCCESS);
 }
